@@ -1,4 +1,4 @@
-# css-class-shrinker
+# css-class-shrinker (WORK IN PROGRESS)
 
 [![NPM version][npm-image]][npm-url]
 [![Build Status][travis-image]][travis-url]
@@ -6,7 +6,7 @@
 [![Dependency Status][depstat-image]][depstat-url]
 [![Downloads][download-badge]][npm-url]
 
-> 
+>
 
 ## Install
 
