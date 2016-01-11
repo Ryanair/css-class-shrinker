@@ -6,7 +6,10 @@ import commander from 'commander';
 import glob from 'glob';
 
 import Collector from './collector';
-import { JsShrkinker, CssShrkinker, HtmlShrkinker } from './shrinkers';
+
+import JsShrkinker from './shrinkers/js-shrinker';
+import CssShrkinker from './shrinkers/css-shrinker';
+import HtmlShrkinker from './shrinkers/html-shrinker';
 
 /**
  * @param {Type}
