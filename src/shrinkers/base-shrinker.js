@@ -17,6 +17,7 @@ export default class BaseShrkinker {
       try {
         return this.write(file, this.processFile(await this.read(file)));
       } catch(e) {
+        /* istanbul ignore next */
         console.log(e);
       }
     }.bind(this)));
@@ -25,6 +26,7 @@ export default class BaseShrkinker {
   read(file) {
     return new Promise((resolve, reject) => {
       fs.readFile(file, 'utf8', (err, contents) => {
+        /* istanbul ignore if */
         if (err) {
           reject(err);
         } else {
@@ -37,6 +39,7 @@ export default class BaseShrkinker {
   write(file, contents) {
     return new Promise((resolve, reject) => {
       fs.writeFile(file, contents, 'utf8', (err) => {
+        /* istanbul ignore if */
         if (err) {
           reject(err);
         } else {
@@ -49,10 +52,12 @@ export default class BaseShrkinker {
   fetchFiles(path) {
     return new Promise((resolve, reject) => {
       fs.lstat(path, function(er, stat) {
+        /* istanbul ignore if */
         if (!er) {
           resolve([path]);
         } else {
           glob(path, {}, (err, files) => {
+            /* istanbul ignore if */
             if (err) {
               reject(err);
             } else {
@@ -64,8 +69,9 @@ export default class BaseShrkinker {
     });
   }
 
+  // NOTE: must be overridden. Logic left to implementors
   processFile(contents) {
-    // NOTE: left to implementors
+    /* istanbul ignore next */
     console.log(contents);
     return contents;
   }
