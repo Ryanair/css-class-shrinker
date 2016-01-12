@@ -18,7 +18,7 @@
     "postbuild": "npm run test -s",
     "coverage": "nyc npm test",
     "coveralls": "npm run coverage -s && nyc report --reporter=text-lcov | coveralls",
-    "postcoveralls": "rimraf ./coverage",
+    "postcoveralls": "rimraf ./.nyc_output",
     "prepublish": "npm run build -s",
     "deploy": "git pull --rebase origin master && git push origin master",
     "patch": "npm version patch && npm publish",
