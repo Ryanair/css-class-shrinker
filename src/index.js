@@ -3,7 +3,6 @@
 
 
 import commander from 'commander';
-import glob from 'glob';
 
 import Collector from './collector';
 

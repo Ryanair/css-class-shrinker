@@ -16,7 +16,7 @@ export default class BaseShrkinker {
     return Promise.all(this.files.map(async function(file) {
       try {
         return this.write(file, this.processFile(await this.read(file)));
-      } catch(e) {
+      } catch (e) {
         /* istanbul ignore next */
         console.log(e);
       }
@@ -51,7 +51,7 @@ export default class BaseShrkinker {
 
   fetchFiles(path) {
     return new Promise((resolve, reject) => {
-      fs.lstat(path, function(er, stat) {
+      fs.lstat(path, (er) => {
         /* istanbul ignore if */
         if (!er) {
           resolve([path]);
