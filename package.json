@@ -12,7 +12,7 @@
     "lint": "eslint src test",
     "check": "npm run lint -s && dependency-check package.json --entry src",
     "watch": "watch 'npm run build' src test",
-    "test": "ava --tap |tap-spec",
+    "test": "ava --tap test/*.test.js |tap-spec",
     "prebuild": "npm run check -s && npm run clean -s",
     "build": "babel --optional runtime src -d dist",
     "postbuild": "npm run test -s",
@@ -70,7 +70,10 @@
   },
   "ava": {
     "files": [
-      "test/*.js",
+      "test/index.js",
+      "test/*.test.js",
+      "!test/fixtures/**/*.js",
+      "!test/expected/**/*.js",
       "!**/helpers.js"
     ],
     "failFast": true,
