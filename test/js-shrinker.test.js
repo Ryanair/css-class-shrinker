@@ -1,7 +1,7 @@
 import test from 'ava';
 import 'babel-core/register';
 import JsShrinker from '../src/shrinkers/js-shrinker';
-import { read, copy, clean } from './helpers/helpers';
+import { readJs as read, copy, clean } from './helpers/helpers';
 
 const map = new Map();
 map.set('some-class', 'sCl');
@@ -13,32 +13,32 @@ test('JsShrinker .shrink()', (t) => {
 
   const shrinker = new JsShrinker('', map);
 
-  t.same(read('expected/js/basic-all-places.js'),
-      shrinker.shrink(read('fixtures/js/basic-all-places.js')),
+  t.same(shrinker.shrink(read('fixtures/js/basic-all-places.js')),
+      read('expected/js/basic-all-places.js'),
       'Should shrink a class in every possible usage of it correctly.');
 
-  t.skip.same(read('expected/js/multiple-classes.js'),
-      shrinker.shrink(read('fixtures/js/multiple-classes.js')),
+  t.skip.same(shrinker.shrink(read('fixtures/js/multiple-classes.js')),
+      read('expected/js/multiple-classes.js'),
       'Should shrink multiple classes found in the same expression correctly.');
 
-  t.skip.same(read('expected/js/complex-selectors.js'),
-      shrinker.shrink(read('fixtures/js/complex-selectors.js')),
+  t.skip.same(shrinker.shrink(read('fixtures/js/complex-selectors.js')),
+      read('expected/js/complex-selectors.js'),
       'Should shrink classes found in complex selectors correctly.');
 
-  t.skip.same(read('expected/js/with-function-props.js'),
-      shrinker.shrink(read('fixtures/js/with-function-props.js')),
+  t.skip.same(shrinker.shrink(read('fixtures/js/with-function-props.js')),
+      read('expected/js/with-function-props.js'),
       'Should shrink classes injected through a function argument correctly.');
 
-  t.skip.same(read('expected/js/with-interpolations.js'),
-      shrinker.shrink(read('fixtures/js/with-interpolations.js')),
+  t.skip.same(shrinker.shrink(read('fixtures/js/with-interpolations.js')),
+      read('expected/js/with-interpolations.js'),
       'Should shrink classes built with any kind of string interpolation correctly.');
 
-  t.skip.same(read('expected/js/with-variables.js'),
-      shrinker.shrink(read('fixtures/js/with-variables.js')),
+  t.skip.same(shrinker.shrink(read('fixtures/js/with-variables.js')),
+      read('expected/js/with-variables.js'),
       'Should shrink classes injected via a local variable correctly.');
 
-  t.skip.same(read('expected/js/partially-similar.js'),
-      shrinker.shrink(read('fixtures/js/partially-similar.js')),
+  t.skip.same(shrinker.shrink(read('fixtures/js/partially-similar.js')),
+      read('expected/js/partially-similar.js'),
       'Should not shrink classes which are similar but not equal to the mapped ones.');
 });
 
@@ -47,17 +47,17 @@ test('JsShrinker .shrinkNgClass()', (t) => {
 
   const shrinker = new JsShrinker('', map);
 
-  t.skip.same(read('expected/js/ng-basic-all-places.js'),
-      shrinker.shrinkNgClass(read('fixtures/js/ng-basic-all-places.js')),
+  t.skip.same(shrinker.shrinkNgClass(read('fixtures/js/ng-basic-all-places.js')),
+      read('expected/js/ng-basic-all-places.js'),
       'Should shrink a class in every possible ng-class usage of it correctly.');
 
-  t.skip.same(read('expected/js/ng-multiple-classes.js'),
-      shrinker.shrinkNgClass(read('fixtures/js/ng-multiple-classes.js')),
+  t.skip.same(shrinker.shrinkNgClass(read('fixtures/js/ng-multiple-classes.js')),
+      read('expected/js/ng-multiple-classes.js'),
       'Should shrink multiple classes found in the same ng-class expression correctly.');
 
   // TODO: add fixtures and expectation for this
-  // t.skip.same(read('expected/js/ng-partially-similar.js'),
-  //     shrinker.shrinkNgClass(read('fixtures/js/ng-partially-similar.js')),
+  // t.skip.same(shrinker.shrinkNgClass(read('fixtures/js/ng-partially-similar.js')),
+  //     read('expected/js/ng-partially-similar.js'),
   //     'Should not shrink ng-classes which are similar but not equal to the mapped ones.');
 });
 

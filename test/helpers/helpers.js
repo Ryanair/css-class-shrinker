@@ -2,9 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import ncp from 'ncp';
 import rimraf from 'rimraf';
+import esprima from 'esprima';
+import codegen from 'escodegen';
 
 export function read(file) {
   return fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+}
+
+export function readJs(file) {
+  let source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  return codegen.generate(esprima.parse(source));
 }
 
 export function copy(src, dest) {

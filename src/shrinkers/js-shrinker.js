@@ -1,8 +1,9 @@
 import BaseShrkinker from './base-shrinker';
 import esprima from 'esprima';
 import query from 'esquery';
+import codegen from 'escodegen';
 
-const functionCalls = [
+const callExpressions = [
   'classList.add',
   'classList.remove',
   'classList.contains',
@@ -14,7 +15,7 @@ const functionCalls = [
   'getElementsByClassName'
 ];
 
-const functionCallsWithSelectors = [
+const callExpressionsWithSelectors = [
   'querySelector',
   'querySelectorAll',
   'find',
@@ -22,12 +23,35 @@ const functionCallsWithSelectors = [
   'jQuery'
 ];
 
-const variableFunctionCalls = [
+const variableCallExpressions = [
   'setAttribute',
   'attr'
 ];
 
-const assignmentExpr = 'className';
+const assignmentKeys = ['className'];
+
+function buildAssignmentExpr(key) {
+  return `AssignmentExpression[left.property.name="${key}"]`;
+}
+
+function buildArgumentExpr(n, arg) {
+  return `[arguments.${n}.value="${arg}"]`;
+}
+
+function buildCallExpr(key) {
+  if (~key.indexOf('.')) {
+    let [obj, meth] = key.split('.');
+    return `CallExpression[callee.object.property.name="${obj}"][callee.property.name="${meth}"]`;
+  }
+  return `CallExpression[callee.property.name="${key}"]`;
+}
+
+function buildSelectorCallExpr(key) {
+  if (key === '$' || key === 'jQuery') {
+    return `CallExpression[callee.name="${key}"][arguments.0.value=/\./]`;
+  }
+  return `CallExpression[callee.property.name="${key}"][arguments.0.value=/\./]`;
+}
 
 export default class JsShrkinker extends BaseShrkinker {
   // TODO: for each file initilize a new sourcemap or read an existing one
@@ -36,9 +60,9 @@ export default class JsShrkinker extends BaseShrkinker {
   // TODO: update the sourcemap according to the above changes
   constructor(path, map) {
     super(~path.indexOf('.js')
-    ? path
-    : `${path}.js`,
-    map);
+        ? path
+        : `${path}.js`,
+        map);
   }
 
   // override
@@ -47,7 +71,12 @@ export default class JsShrkinker extends BaseShrkinker {
   }
 
   shrink(jsString) {
+    let ast = esprima.parse(jsString);
 
+    this.shrinkAssignments(ast, assignmentKeys);
+    this.shrinkCallExpressions(ast, callExpressions);
+    this.shrinkVariableCallExpressions('class', ast, variableCallExpressions);
+    this.shrinkSelectors(ast, callExpressionsWithSelectors);
 
     //
     // let classedElements = $('[class]');
@@ -58,29 +87,68 @@ export default class JsShrkinker extends BaseShrkinker {
     //   .map(c => this._map.get(c) || c)
     //   .join(' '));
     // });
-    return ast.toString();
+    return codegen.generate(ast);
   }
 
-  shrinkAssignments() {
+  shrinkAssignments(ast, keys) {
+    let val;
+    keys.map(key => query.query(ast, buildAssignmentExpr(key)))
+        .reduce((arr, next) => arr.concat(next), [])
+        .forEach(node => {
+          if (node.right && node.right.value) {
+            val = node.right.value;
+            node.right.value = this.getId(val);
+          }
+        });
+    // console.log('ast', codegen.generate(ast))
+  }
 
+  shrinkCallExpressions(ast, keys) {
+    keys.map(key => query.query(ast, buildCallExpr(key)))
+        .reduce((arr, next) => arr.concat(next), [])
+        .forEach(node => {
+          if (node.arguments.length) {
+            node.arguments.forEach(arg => {
+              arg.value = this.getId(arg.value);
+            });
+          }
+        });
+    // console.log('ast', codegen.generate(ast))
+  }
+
+  shrinkVariableCallExpressions(type, ast, keys) {
+    keys.map(key => query.query(ast, buildCallExpr(key)))
+        .reduce((arr, next) => arr.concat(next), [])
+        .filter(node => query.query(node, buildArgumentExpr(0, type)).length)
+        .forEach(node => {
+          if (node.arguments.length) {
+            // NOTE: I'll process the first argument as well, there's no risk
+            // that someone will create a class named .class or .ng-class
+            node.arguments.forEach(arg => {
+              arg.value = this.getId(arg.value);
+            });
+          }
+        });
+    // console.log('ast', codegen.generate(ast))
   }
 
   shrinkInterpolations() {
 
   }
 
-  shrinkSelectors(jsString) {
-    return jsString;
-    // let $ = cheerio.load(jsString);
-    // let classedElements = $('[class]');
-    // classedElements.each((i, el) => {
-    //   $(el).attr('class',
-    //   $(el).attr('class')
-    //   .split(' ')
-    //   .map(c => this._map.get(c) || c)
-    //   .join(' '));
-    // });
-    // return $.html();
+  shrinkSelectors(ast, keys) {
+    let cls = '';
+    keys.map(key => query.query(ast, buildSelectorCallExpr(key)))
+        .reduce((arr, next) => arr.concat(next), [])
+        .forEach(node => {
+          if (node.arguments.length && node.arguments[0].value) {
+            cls = node.arguments[0].value.replace(
+                /\.([a-zA-Z\-]+)/g,
+                (m, g) => `.${this.getId(g)}`);
+            node.arguments[0].value = cls;
+          }
+        });
+    // console.log('ast', codegen.generate(ast))
   }
 
   shrinkNgClass(jsString) {

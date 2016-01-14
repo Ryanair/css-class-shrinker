@@ -21,7 +21,7 @@ export default class HtmlShrkinker extends BaseShrkinker {
       $(el).attr('class',
           $(el).attr('class')
               .split(' ')
-              .map(c => this._map.get(c) || c)
+              .map(c => this.getId(c))
               .join(' '));
     });
     return $.html();
@@ -48,7 +48,7 @@ export default class HtmlShrkinker extends BaseShrkinker {
         newCls += cls.substring(e, b+1);
         e = cls.indexOf('\'', b+1);
         c = cls.substring(b+1, e);
-        newCls += this._map.get(c) || c;
+        newCls += this.getId(c);
         b = cls.indexOf('\'', e+1);
       }
       newCls += cls.substring(e, cls.length);

@@ -23,6 +23,10 @@ export default class BaseShrkinker {
     }.bind(this)));
   }
 
+  getId(key) {
+    return this._map.get(key) || key;
+  }
+
   read(file) {
     return new Promise((resolve, reject) => {
       fs.readFile(file, 'utf8', (err, contents) => {

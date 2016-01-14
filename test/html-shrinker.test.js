@@ -16,20 +16,20 @@ test('HtmlShrinker .shrink()', (t) => {
 
   const shrinker = new HtmlShrinker('', map);
 
-  t.same(read('expected/html/simple.html'),
-      shrinker.shrink(read('fixtures/html/simple.html')),
+  t.same(shrinker.shrink(read('fixtures/html/simple.html')),
+      read('expected/html/simple.html'),
       'Should shrink a class correctly.');
 
-  t.same(read('expected/html/many-elements.html'),
-      shrinker.shrink(read('fixtures/html/many-elements.html')),
+  t.same(shrinker.shrink(read('fixtures/html/many-elements.html')),
+      read('expected/html/many-elements.html'),
       'Should shrink any class of any element correctly.');
 
-  t.same(read('expected/html/multi-classes.html'),
-      shrinker.shrink(read('fixtures/html/multi-classes.html')),
+  t.same(shrinker.shrink(read('fixtures/html/multi-classes.html')),
+      read('expected/html/multi-classes.html'),
       'Should shrink multiple classes of each element correctly.');
 
-  t.same(read('expected/html/partially-similar.html'),
-      shrinker.shrink(read('fixtures/html/partially-similar.html')),
+  t.same(shrinker.shrink(read('fixtures/html/partially-similar.html')),
+      read('expected/html/partially-similar.html'),
       'Should not shrink classes which are similar but not equal to the mapped ones.');
 });
 
@@ -38,20 +38,20 @@ test('HtmlShrinker .shrinkNgClass()', (t) => {
 
   const shrinker = new HtmlShrinker('', map);
 
-  t.same(read('expected/html/ng-simple.html'),
-      shrinker.shrinkNgClass(read('fixtures/html/ng-simple.html')),
+  t.same(shrinker.shrinkNgClass(read('fixtures/html/ng-simple.html')),
+      read('expected/html/ng-simple.html'),
       'Should shrink an ng-class correctly.');
 
-  t.same(read('expected/html/ng-many-elements.html'),
-      shrinker.shrinkNgClass(read('fixtures/html/ng-many-elements.html')),
+  t.same(shrinker.shrinkNgClass(read('fixtures/html/ng-many-elements.html')),
+      read('expected/html/ng-many-elements.html'),
       'Should shrink any ng-class of any element correctly.');
 
-  t.same(read('expected/html/ng-multi-classes.html'),
-      shrinker.shrinkNgClass(read('fixtures/html/ng-multi-classes.html')),
+  t.same(shrinker.shrinkNgClass(read('fixtures/html/ng-multi-classes.html')),
+      read('expected/html/ng-multi-classes.html'),
       'Should shrink multiple ng-classes of each element correctly.');
 
-  t.same(read('expected/html/ng-partially-similar.html'),
-      shrinker.shrinkNgClass(read('fixtures/html/ng-partially-similar.html')),
+  t.same(shrinker.shrinkNgClass(read('fixtures/html/ng-partially-similar.html')),
+      read('expected/html/ng-partially-similar.html'),
       'Should not shrink ng-classes which are similar but not equal to the mapped ones.');
 });
 
