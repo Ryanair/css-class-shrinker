@@ -6,9 +6,9 @@ import commander from 'commander';
 
 import Collector from './collector';
 
-import JsShrkinker from './shrinkers/js-shrinker';
-import CssShrkinker from './shrinkers/css-shrinker';
-import HtmlShrkinker from './shrinkers/html-shrinker';
+import JsShrinker from './shrinkers/js-shrinker';
+import CssShrinker from './shrinkers/css-shrinker';
+import HtmlShrinker from './shrinkers/html-shrinker';
 
 /**
  * @param {Type}

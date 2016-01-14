@@ -1,7 +1,7 @@
-import BaseShrkinker from './base-shrinker';
+import BaseShrinker from './base-shrinker';
 import cheerio from 'cheerio';
 
-export default class HtmlShrkinker extends BaseShrkinker {
+export default class HtmlShrinker extends BaseShrinker {
   constructor(path, map) {
     super(~path.indexOf('.html')
         ? path

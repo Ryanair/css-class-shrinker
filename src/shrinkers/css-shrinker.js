@@ -1,6 +1,6 @@
-import BaseShrkinker from './base-shrinker';
+import BaseShrinker from './base-shrinker';
 
-export default class CssShrkinker {
+export default class CssShrinker {
   // TODO: fetch all CSS files based on a glob passed in input
   // TODO: loop through all the fetched CSS files
   // TODO: for each file initilize a new sourcemap or read an existing one

@@ -1,4 +1,4 @@
-import BaseShrkinker from './base-shrinker';
+import BaseShrinker from './base-shrinker';
 import esprima from 'esprima';
 import query from 'esquery';
 import codegen from 'escodegen';
@@ -53,7 +53,7 @@ function buildSelectorCallExpr(key) {
   return `CallExpression[callee.property.name="${key}"][arguments.0.value=/\./]`;
 }
 
-export default class JsShrkinker extends BaseShrkinker {
+export default class JsShrinker extends BaseShrinker {
   // TODO: for each file initilize a new sourcemap or read an existing one
   // TODO: traverse the file searching for strings (use indexOf to traverse it)
   // TODO: replace any occurrences of shrinkable classes with relative ID

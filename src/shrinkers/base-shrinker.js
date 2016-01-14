@@ -1,7 +1,7 @@
 import fs from 'fs';
 import glob from 'glob';
 
-export default class BaseShrkinker {
+export default class BaseShrinker {
   constructor(path, map) {
     this._path = path;
     this._map = map;
