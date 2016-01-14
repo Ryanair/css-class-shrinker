@@ -47,7 +47,7 @@ test('JsShrinker .shrinkNgClass()', (t) => {
 
   const shrinker = new JsShrinker('', map);
 
-  t.skip.same(shrinker.shrinkNgClass(read('fixtures/js/ng-basic-all-places.js')),
+  t.same(shrinker.shrinkNgClass(read('fixtures/js/ng-basic-all-places.js')),
       read('expected/js/ng-basic-all-places.js'),
       'Should shrink a class in every possible ng-class usage of it correctly.');
 

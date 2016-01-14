@@ -55,9 +55,7 @@ function buildSelectorCallExpr(key) {
 
 export default class JsShrinker extends BaseShrinker {
   // TODO: for each file initilize a new sourcemap or read an existing one
-  // TODO: traverse the file searching for strings (use indexOf to traverse it)
-  // TODO: replace any occurrences of shrinkable classes with relative ID
-  // TODO: update the sourcemap according to the above changes
+  // TODO: update the sourcemap according to the changes
   constructor(path, map) {
     super(~path.indexOf('.js')
         ? path
@@ -75,18 +73,9 @@ export default class JsShrinker extends BaseShrinker {
 
     this.shrinkAssignments(ast, assignmentKeys);
     this.shrinkCallExpressions(ast, callExpressions);
-    this.shrinkVariableCallExpressions('class', ast, variableCallExpressions);
+    this.shrinkVariableCallExpressions(ast, variableCallExpressions);
     this.shrinkSelectors(ast, callExpressionsWithSelectors);
 
-    //
-    // let classedElements = $('[class]');
-    // classedElements.each((i, el) => {
-    //   $(el).attr('class',
-    //   $(el).attr('class')
-    //   .split(' ')
-    //   .map(c => this._map.get(c) || c)
-    //   .join(' '));
-    // });
     return codegen.generate(ast);
   }
 
@@ -116,10 +105,10 @@ export default class JsShrinker extends BaseShrinker {
     // console.log('ast', codegen.generate(ast))
   }
 
-  shrinkVariableCallExpressions(type, ast, keys) {
+  shrinkVariableCallExpressions(ast, keys) {
     keys.map(key => query.query(ast, buildCallExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
-        .filter(node => query.query(node, buildArgumentExpr(0, type)).length)
+        .filter(node => query.query(node, buildArgumentExpr(0, 'class')).length)
         .forEach(node => {
           if (node.arguments.length) {
             // NOTE: I'll process the first argument as well, there's no risk
@@ -152,34 +141,40 @@ export default class JsShrinker extends BaseShrinker {
   }
 
   shrinkNgClass(jsString) {
+    let ast = esprima.parse(jsString);
+
+    variableCallExpressions.map(key => query.query(ast, buildCallExpr(key)))
+        .reduce((arr, next) => arr.concat(next), [])
+        .filter(node => query.query(node, buildArgumentExpr(0, 'ng-class')).length)
+        .forEach(node => {
+          if (node.arguments.length) {
+            // NOTE: I'll process the first argument as well, there's no risk
+            // that someone will create a class named .class or .ng-class
+            node.arguments.forEach(arg => {
+              arg.value = this._shrinkNgClass(arg.value);
+            });
+          }
+        });
+    return codegen.generate(ast);
+  }
+
+  _shrinkNgClass(cls) {
     // NOTE: it only works with one syntax at the moment:
     // {'class-name': expression }
     // TODO: make sure it only transforms strings present in the classname and
     // not in the expression
-
-    return jsString;
-    // let $ = cheerio.load(jsString);
-    // let classedElements = $('[ng-class]');
-    // let b = 0;
-    // let e = 0;
-    // let newCls;
-    // let cls;
-    // let c;
-    // classedElements.each((i, el) => {
-    //   newCls = '';
-    //   cls = $(el).attr('ng-class');
-    //   b = cls.indexOf('\'');
-    //   e = 0;
-    //   while (b !== -1) {
-    //     newCls += cls.substring(e, b+1);
-    //     e = cls.indexOf('\'', b+1);
-    //     c = cls.substring(b+1, e);
-    //     newCls += this._map.get(c) || c;
-    //     b = cls.indexOf('\'', e+1);
-    //   }
-    //   newCls += cls.substring(e, cls.length);
-    //   $(el).attr('ng-class', newCls);
-    // });
-    // return $.html().replace(/&apos;/g, '\'');
+    let newCls = '';
+    let b = cls.indexOf('\'');
+    let e = 0;
+    let c;
+    while (b !== -1) {
+      newCls += cls.substring(e, b+1);
+      e = cls.indexOf('\'', b+1);
+      c = cls.substring(b+1, e);
+      newCls += this.getId(c);
+      b = cls.indexOf('\'', e+1);
+    }
+    newCls += cls.substring(e, cls.length);
+    return newCls;
   }
 }
