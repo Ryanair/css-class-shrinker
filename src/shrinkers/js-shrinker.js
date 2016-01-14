@@ -80,13 +80,14 @@ export default class JsShrinker extends BaseShrinker {
   }
 
   shrinkAssignments(ast, keys) {
-    let val;
     keys.map(key => query.query(ast, buildAssignmentExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
         .forEach(node => {
           if (node.right && node.right.value) {
-            val = node.right.value;
-            node.right.value = this.getId(val);
+            node.right.value = node.right.value
+                .split(' ')
+                .map(c => this.getId(c))
+                .join(' ');
           }
         });
     // console.log('ast', codegen.generate(ast))
@@ -98,7 +99,12 @@ export default class JsShrinker extends BaseShrinker {
         .forEach(node => {
           if (node.arguments.length) {
             node.arguments.forEach(arg => {
-              arg.value = this.getId(arg.value);
+              if (arg.value) {
+                arg.value = arg.value
+                  .split(' ')
+                  .map(c => this.getId(c))
+                  .join(' ');
+              }
             });
           }
         });
@@ -114,7 +120,10 @@ export default class JsShrinker extends BaseShrinker {
             // NOTE: I'll process the first argument as well, there's no risk
             // that someone will create a class named .class or .ng-class
             node.arguments.forEach(arg => {
-              arg.value = this.getId(arg.value);
+              arg.value = arg.value
+                  .split(' ')
+                  .map(c => this.getId(c))
+                  .join(' ');
             });
           }
         });

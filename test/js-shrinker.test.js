@@ -17,11 +17,11 @@ test('JsShrinker .shrink()', (t) => {
       read('expected/js/basic-all-places.js'),
       'Should shrink a class in every possible usage of it correctly.');
 
-  t.skip.same(shrinker.shrink(read('fixtures/js/multiple-classes.js')),
+  t.same(shrinker.shrink(read('fixtures/js/multiple-classes.js')),
       read('expected/js/multiple-classes.js'),
       'Should shrink multiple classes found in the same expression correctly.');
 
-  t.skip.same(shrinker.shrink(read('fixtures/js/complex-selectors.js')),
+  t.same(shrinker.shrink(read('fixtures/js/complex-selectors.js')),
       read('expected/js/complex-selectors.js'),
       'Should shrink classes found in complex selectors correctly.');
 
@@ -37,7 +37,7 @@ test('JsShrinker .shrink()', (t) => {
       read('expected/js/with-variables.js'),
       'Should shrink classes injected via a local variable correctly.');
 
-  t.skip.same(shrinker.shrink(read('fixtures/js/partially-similar.js')),
+  t.same(shrinker.shrink(read('fixtures/js/partially-similar.js')),
       read('expected/js/partially-similar.js'),
       'Should not shrink classes which are similar but not equal to the mapped ones.');
 });
