@@ -25,7 +25,7 @@ test('JsShrinker .shrink()', (t) => {
       read('expected/js/complex-selectors.js'),
       'Should shrink classes found in complex selectors correctly.');
 
-  t.skip.same(shrinker.shrink(read('fixtures/js/with-function-props.js')),
+  t.same(shrinker.shrink(read('fixtures/js/with-function-props.js')),
       read('expected/js/with-function-props.js'),
       'Should shrink classes injected through a function argument correctly.');
 

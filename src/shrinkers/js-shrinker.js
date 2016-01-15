@@ -98,12 +98,14 @@ export default class JsShrinker extends BaseShrinker {
         .filter(node => node.right)
         .forEach(node => {
           if (t.Identifier.check(node.right)) {
+            // if (this._findAndShrinkFunctionParams(ast, 'assignment', node.right.name)) {
+            //   return;
+            // }
             this._findAndShrinkVars(ast, node.right.name, 'class');
           } else if (node.right.value) {
             node.right.value = this._shrinkSimpleClass(node.right.value);
           }
         });
-    // console.log('ast', codegen.generate(ast))
   }
 
   shrinkCallExpressions(ast, keys) {
@@ -113,13 +115,15 @@ export default class JsShrinker extends BaseShrinker {
         .forEach(node => {
           node.arguments.forEach(arg => {
             if (t.Identifier.check(arg)) {
+              if (this._findAndShrinkFunctionParams(ast, 'call', arg.name)) {
+                return;
+              }
               this._findAndShrinkVars(ast, arg.name, 'class');
             } else if (arg.value) {
               arg.value = this._shrinkSimpleClass(arg.value);
             }
           });
         });
-    // console.log('ast', codegen.generate(ast))
   }
 
   shrinkVariableCallExpressions(ast, keys) {
@@ -138,7 +142,6 @@ export default class JsShrinker extends BaseShrinker {
             arg.value = this._shrinkSimpleClass(arg.value);
           }
         });
-    // console.log('ast', codegen.generate(ast))
   }
 
   shrinkInterpolations() {
@@ -156,7 +159,6 @@ export default class JsShrinker extends BaseShrinker {
             node.arguments[0].value = this._shrinkSelectors(node.arguments[0].value);
           }
         });
-    // console.log('ast', codegen.generate(ast))
   }
 
   shrinkNgClass(jsString) {
@@ -195,6 +197,26 @@ export default class JsShrinker extends BaseShrinker {
         node.right.value = shrink(node.right.value);
       }
     });
+  }
+
+  _findAndShrinkFunctionParams(ast, type, id) {
+    // type: assignment, call, callSelector
+    let _query = '*';
+    if (type === 'call') {
+      _query = buildAssignmentExpr(id)
+          .replace('CallExpression', 'ExpressionStatement')
+          .replace('callee', 'expression.callee');
+    }
+    let affectedNode = query.query(ast, _query);
+    query.query(ast, ':function')
+        .filter(node => {
+          console.log(node.body.body)
+          return ~node.body.body.indexOf(affectedNode);
+        })
+        .forEach(node => {
+          console.log(node);
+        });
+    return false;
   }
 
   _shrinkSimpleClass(cls) {
