@@ -56,6 +56,7 @@ function buildSelectorCallExpr(key) {
 export default class JsShrinker extends BaseShrinker {
   // TODO: for each file initilize a new sourcemap or read an existing one
   // TODO: update the sourcemap according to the changes
+  // TODO: for angular: fetch all class="{{some.scope.prop}}" during html shrink
   constructor(path, map) {
     super(~path.indexOf('.js')
         ? path
