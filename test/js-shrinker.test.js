@@ -33,7 +33,7 @@ test('JsShrinker .shrink()', (t) => {
       read('expected/js/with-interpolations.js'),
       'Should shrink classes built with any kind of string interpolation correctly.');
 
-  t.skip.same(shrinker.shrink(read('fixtures/js/with-variables.js')),
+  t.same(shrinker.shrink(read('fixtures/js/with-variables.js')),
       read('expected/js/with-variables.js'),
       'Should shrink classes injected via a local variable correctly.');
 

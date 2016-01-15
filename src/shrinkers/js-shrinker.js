@@ -2,8 +2,9 @@ import BaseShrinker from './base-shrinker';
 import esprima from 'esprima';
 import query from 'esquery';
 import codegen from 'escodegen';
+import { namedTypes as t } from 'ast-types';
 
-const callExpressions = [
+const CALL_EXPRESSIONS = [
   'classList.add',
   'classList.remove',
   'classList.contains',
@@ -15,7 +16,7 @@ const callExpressions = [
   'getElementsByClassName'
 ];
 
-const callExpressionsWithSelectors = [
+const CALL_EXPRESSIONS_WITH_SELECTORS = [
   'querySelector',
   'querySelectorAll',
   'find',
@@ -23,15 +24,26 @@ const callExpressionsWithSelectors = [
   'jQuery'
 ];
 
-const variableCallExpressions = [
+const VARIABLE_CALL_EXPRESSIONS = [
   'setAttribute',
   'attr'
 ];
 
-const assignmentKeys = ['className'];
+const ASSIGNMENT_KEYS = ['className'];
+
+const CLASS_RE = /\.([a-zA-Z\-]+)/g;
+
+// AST Query builders
+function buildAssignmentPropExpr(key) {
+  return `AssignmentExpression[left.property.name="${key}"]`;
+}
 
 function buildAssignmentExpr(key) {
-  return `AssignmentExpression[left.property.name="${key}"]`;
+  return `AssignmentExpression[left.name="${key}"]`;
+}
+
+function buildVarDeclarator(key) {
+  return `VariableDeclarator[init][id.name="${key}"]`;
 }
 
 function buildArgumentExpr(n, arg) {
@@ -72,23 +84,23 @@ export default class JsShrinker extends BaseShrinker {
   shrink(jsString) {
     let ast = esprima.parse(jsString);
 
-    this.shrinkAssignments(ast, assignmentKeys);
-    this.shrinkCallExpressions(ast, callExpressions);
-    this.shrinkVariableCallExpressions(ast, variableCallExpressions);
-    this.shrinkSelectors(ast, callExpressionsWithSelectors);
+    this.shrinkAssignments(ast, ASSIGNMENT_KEYS);
+    this.shrinkCallExpressions(ast, CALL_EXPRESSIONS);
+    this.shrinkVariableCallExpressions(ast, VARIABLE_CALL_EXPRESSIONS);
+    this.shrinkSelectors(ast, CALL_EXPRESSIONS_WITH_SELECTORS);
 
     return codegen.generate(ast);
   }
 
   shrinkAssignments(ast, keys) {
-    keys.map(key => query.query(ast, buildAssignmentExpr(key)))
+    keys.map(key => query.query(ast, buildAssignmentPropExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
+        .filter(node => node.right)
         .forEach(node => {
-          if (node.right && node.right.value) {
-            node.right.value = node.right.value
-                .split(' ')
-                .map(c => this.getId(c))
-                .join(' ');
+          if (t.Identifier.check(node.right)) {
+            this._findAndShrinkVars(ast, node.right.name, 'class');
+          } else if (node.right.value) {
+            node.right.value = this._shrinkSimpleClass(node.right.value);
           }
         });
     // console.log('ast', codegen.generate(ast))
@@ -97,35 +109,33 @@ export default class JsShrinker extends BaseShrinker {
   shrinkCallExpressions(ast, keys) {
     keys.map(key => query.query(ast, buildCallExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
+        .filter(node => node.arguments.length)
         .forEach(node => {
-          if (node.arguments.length) {
-            node.arguments.forEach(arg => {
-              if (arg.value) {
-                arg.value = arg.value
-                  .split(' ')
-                  .map(c => this.getId(c))
-                  .join(' ');
-              }
-            });
-          }
+          node.arguments.forEach(arg => {
+            if (t.Identifier.check(arg)) {
+              this._findAndShrinkVars(ast, arg.name, 'class');
+            } else if (arg.value) {
+              arg.value = this._shrinkSimpleClass(arg.value);
+            }
+          });
         });
     // console.log('ast', codegen.generate(ast))
   }
 
   shrinkVariableCallExpressions(ast, keys) {
+    let arg;
     keys.map(key => query.query(ast, buildCallExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
-        .filter(node => query.query(node, buildArgumentExpr(0, 'class')).length)
+        .filter(node => {
+          return query.query(node, buildArgumentExpr(0, 'class')).length &&
+              node.arguments.length === 2;
+        })
         .forEach(node => {
-          if (node.arguments.length) {
-            // NOTE: I'll process the first argument as well, there's no risk
-            // that someone will create a class named .class or .ng-class
-            node.arguments.forEach(arg => {
-              arg.value = arg.value
-                  .split(' ')
-                  .map(c => this.getId(c))
-                  .join(' ');
-            });
+          arg = node.arguments[1];
+          if (t.Identifier.check(arg)) {
+            this._findAndShrinkVars(ast, arg.name, 'class');
+          } else if (arg.value) {
+            arg.value = this._shrinkSimpleClass(arg.value);
           }
         });
     // console.log('ast', codegen.generate(ast))
@@ -136,15 +146,14 @@ export default class JsShrinker extends BaseShrinker {
   }
 
   shrinkSelectors(ast, keys) {
-    let cls = '';
     keys.map(key => query.query(ast, buildSelectorCallExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
+        .filter(node => node.arguments.length)
         .forEach(node => {
-          if (node.arguments.length && node.arguments[0].value) {
-            cls = node.arguments[0].value.replace(
-                /\.([a-zA-Z\-]+)/g,
-                (m, g) => `.${this.getId(g)}`);
-            node.arguments[0].value = cls;
+          if (t.Identifier.check(node.arguments[0])) {
+            this._findAndShrinkVars(ast, node.arguments[0].name, 'selector');
+          } else if (node.arguments[0].value) {
+            node.arguments[0].value = this._shrinkSelectors(node.arguments[0].value);
           }
         });
     // console.log('ast', codegen.generate(ast))
@@ -153,7 +162,7 @@ export default class JsShrinker extends BaseShrinker {
   shrinkNgClass(jsString) {
     let ast = esprima.parse(jsString);
 
-    variableCallExpressions.map(key => query.query(ast, buildCallExpr(key)))
+    VARIABLE_CALL_EXPRESSIONS.map(key => query.query(ast, buildCallExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
         .filter(node => query.query(node, buildArgumentExpr(0, 'ng-class')).length)
         .forEach(node => {
@@ -166,6 +175,36 @@ export default class JsShrinker extends BaseShrinker {
           }
         });
     return codegen.generate(ast);
+  }
+
+  _findAndShrinkVars(ast, varName, type) {
+    // NOTE: very risky at the moment, since it searches for all occurencies of
+    // `varName` in the file and replaces its string contents.
+    // TODO: improve this by taking into account function scopes, to limit the
+    // risk of changing a variable which shouldn't be touched.
+    let shrink = type === 'selector'
+        ? this._shrinkSelectors.bind(this)
+        : this._shrinkSimpleClass.bind(this);
+    query.query(ast, buildVarDeclarator(varName)).forEach(node => {
+      if (t.Literal.check(node.init)) {
+        node.init.value = shrink(node.init.value);
+      }
+    });
+    query.query(ast, buildAssignmentExpr(varName)).forEach(node => {
+      if (t.Literal.check(node.right)) {
+        node.right.value = shrink(node.right.value);
+      }
+    });
+  }
+
+  _shrinkSimpleClass(cls) {
+    return cls.split(' ')
+        .map(c => this.getId(c))
+        .join(' ');
+  }
+
+  _shrinkSelectors(cls) {
+    return cls.replace(CLASS_RE, (m, g) => `.${this.getId(g)}`);
   }
 
   _shrinkNgClass(cls) {
