@@ -30,7 +30,7 @@ MIT © [Ryanair Labs](http://github.com/Ryanair)
 [npm-image]: https://img.shields.io/npm/v/css-class-shrinker.svg?style=flat-square
 
 [travis-url]: https://travis-ci.org/Ryanair/css-class-shrinker
-[travis-image]: https://img.shields.io/travis/Ryanair/css-class-shrinker.svg?style=flat-square
+[travis-image]: https://img.shields.io/travis/Ryanair/css-class-shrinker/master.svg?style=flat-square
 
 [coveralls-url]: https://coveralls.io/github/Ryanair/css-class-shrinker?branch=master
 [coveralls-image]: https://img.shields.io/coveralls/Ryanair/css-class-shrinker.svg?style=flat-square
