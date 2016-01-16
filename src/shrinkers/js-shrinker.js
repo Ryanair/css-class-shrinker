@@ -3,6 +3,7 @@ import esprima from 'esprima';
 import query from 'esquery';
 import codegen from 'escodegen';
 import { namedTypes as t } from 'ast-types';
+import { deepEqual } from 'assert';
 
 const CALL_EXPRESSIONS = [
   'classList.add',
@@ -50,10 +51,13 @@ function buildArgumentExpr(n, arg) {
   return `[arguments.${n}.value="${arg}"]`;
 }
 
-function buildCallExpr(key) {
+function buildCallExpr(key, direct) {
   if (~key.indexOf('.')) {
     let [obj, meth] = key.split('.');
     return `CallExpression[callee.object.property.name="${obj}"][callee.property.name="${meth}"]`;
+  }
+  if (direct) {
+    return `CallExpression[callee.name="${key}"]`;
   }
   return `CallExpression[callee.property.name="${key}"]`;
 }
@@ -98,9 +102,9 @@ export default class JsShrinker extends BaseShrinker {
         .filter(node => node.right)
         .forEach(node => {
           if (t.Identifier.check(node.right)) {
-            // if (this._findAndShrinkFunctionParams(ast, 'assignment', node.right.name)) {
-            //   return;
-            // }
+            if (this._findAndShrinkFunctionParams(ast, 'assignment', node, node.right.name)) {
+              return;
+            }
             this._findAndShrinkVars(ast, node.right.name, 'class');
           } else if (node.right.value) {
             node.right.value = this._shrinkSimpleClass(node.right.value);
@@ -108,14 +112,14 @@ export default class JsShrinker extends BaseShrinker {
         });
   }
 
-  shrinkCallExpressions(ast, keys) {
-    keys.map(key => query.query(ast, buildCallExpr(key)))
+  shrinkCallExpressions(ast, keys, direct) {
+    keys.map(key => query.query(ast, buildCallExpr(key, direct)))
         .reduce((arr, next) => arr.concat(next), [])
         .filter(node => node.arguments.length)
         .forEach(node => {
           node.arguments.forEach(arg => {
             if (t.Identifier.check(arg)) {
-              if (this._findAndShrinkFunctionParams(ast, 'call', arg.name)) {
+              if (this._findAndShrinkFunctionParams(ast, 'call', node, arg.name)) {
                 return;
               }
               this._findAndShrinkVars(ast, arg.name, 'class');
@@ -184,39 +188,74 @@ export default class JsShrinker extends BaseShrinker {
     // `varName` in the file and replaces its string contents.
     // TODO: improve this by taking into account function scopes, to limit the
     // risk of changing a variable which shouldn't be touched.
+    let found = false;
     let shrink = type === 'selector'
         ? this._shrinkSelectors.bind(this)
         : this._shrinkSimpleClass.bind(this);
     query.query(ast, buildVarDeclarator(varName)).forEach(node => {
       if (t.Literal.check(node.init)) {
         node.init.value = shrink(node.init.value);
+        found = true;
       }
     });
     query.query(ast, buildAssignmentExpr(varName)).forEach(node => {
       if (t.Literal.check(node.right)) {
         node.right.value = shrink(node.right.value);
+        found = true;
       }
     });
+    return found;
   }
 
-  _findAndShrinkFunctionParams(ast, type, id) {
+  _findAndShrinkFunctionParams(ast, type, node, id) {
     // type: assignment, call, callSelector
-    let _query = '*';
+
+    let affectedNode = null;
     if (type === 'call') {
-      _query = buildAssignmentExpr(id)
-          .replace('CallExpression', 'ExpressionStatement')
-          .replace('callee', 'expression.callee');
+      affectedNode = query.query(ast, 'ExpressionStatement')
+          .find(block => block.expression === node);
+    } else if (type === 'assignment') {
+      affectedNode = query.query(ast, 'ExpressionStatement')
+          .find(block => block.expression === node);
     }
-    let affectedNode = query.query(ast, _query);
-    query.query(ast, ':function')
-        .filter(node => {
-          console.log(node.body.body)
-          return ~node.body.body.indexOf(affectedNode);
-        })
-        .forEach(node => {
-          console.log(node);
-        });
+    let scopeFn = query.query(ast, ':function')
+        .filter(func => {
+          return ~func.body.body.indexOf(affectedNode);
+        })[0];
+    let argIdx = scopeFn.params.findIndex(p => p.name === id);
+    if (~argIdx) {
+      // NOTE: the variable is declared outside this function and passed in as
+      // a parameter
+      let fnName = scopeFn.id
+          ? scopeFn.id.name
+          : this._findFunctionName(ast, scopeFn);
+          type === 'assignment' &&  console.log(fnName)
+      this.shrinkCallExpressions(ast, [fnName], true);
+      return true;
+    }
     return false;
+  }
+
+  _findFunctionName(ast, fnExpr) {
+    console.log(fnExpr)
+    let node = query.query(ast, 'VariableDeclarator')
+       .find(block => {
+         try {
+           deepEqual(block.init, node);
+         } catch (e) {
+           return false;
+         }
+         return true;
+       });
+    if (!node) {
+      node = query.query(ast, 'AssignmentExpression')
+      .find(block => block.right === node);
+    }
+    if (!node) {
+      // NOTE: may be an IIFE ?
+      console.log('Something is wrong: could not find function name');
+    }
+    return node.id ? node.id.name : node.expression.left.name;
   }
 
   _shrinkSimpleClass(cls) {

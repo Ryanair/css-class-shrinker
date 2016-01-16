@@ -26,4 +26,9 @@
   $(cls5);
 
   body.setClass(body, cls6);
+
+  // function scoped() {
+  //   let cls = 'yet-another-class';
+  //   body.classList.add(cls);
+  // }
 })();
