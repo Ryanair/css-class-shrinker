@@ -54,13 +54,10 @@ function buildArgumentExpr(n, arg) {
   return `[arguments.${n}.value="${arg}"]`;
 }
 
-function buildCallExpr(key, direct) {
+function buildCallExpr(key) {
   if (~key.indexOf('.')) {
     let [obj, meth] = key.split('.');
     return `CallExpression[callee.object.property.name="${obj}"][callee.property.name="${meth}"]`;
-  }
-  if (direct) {
-    return `CallExpression[callee.name="${key}"]`;
   }
   return `CallExpression[callee.property.name="${key}"]`;
 }
@@ -123,8 +120,8 @@ export default class JsShrinker extends BaseShrinker {
         });
   }
 
-  shrinkCallExpressions(ast, keys, direct) {
-    keys.map(key => query.query(ast, buildCallExpr(key, direct)))
+  shrinkCallExpressions(ast, keys) {
+    keys.map(key => query.query(ast, buildCallExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
         .filter(node => node.arguments.length)
         .forEach(node => {
