@@ -34,6 +34,6 @@
   change(cls);
   change2(cls2);
   change3('some-class');
-  change4('sCl');
+  change4('other-class', 10, 'sCl', 'some-class');
   change5('sCl', '.YaC', 'yet-another-class');
 })();

@@ -34,6 +34,6 @@
   change(cls);
   change2(cls2);
   change3('some-class');
-  change4('some-class');
+  change4('other-class', 10, 'some-class', 'some-class');
   change5('some-class', '.yet-another-class', 'yet-another-class');
 })();

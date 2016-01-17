@@ -3,7 +3,6 @@ import esprima from 'esprima';
 import query from 'esquery';
 import codegen from 'escodegen';
 import { namedTypes as t } from 'ast-types';
-import { deepEqual } from 'assert';
 
 const CALL_EXPRESSIONS = [
   'classList.add',
@@ -62,6 +61,10 @@ function buildCallExpr(key, direct) {
   return `CallExpression[callee.property.name="${key}"]`;
 }
 
+function buildSpecificCallExpr(key, argIdx) {
+  return `CallExpression[callee.name="${key}"][arguments.${argIdx}]`;
+}
+
 function buildSelectorCallExpr(key) {
   if (key === '$' || key === 'jQuery') {
     return `CallExpression[callee.name="${key}"][arguments.0.value=/\./]`;
@@ -100,13 +103,17 @@ export default class JsShrinker extends BaseShrinker {
     keys.map(key => query.query(ast, buildAssignmentPropExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
         .filter(node => node.right)
-        .forEach(node => {
+        .filter(node => {
           if (t.Identifier.check(node.right)) {
-            if (this._findAndShrinkFunctionParams(ast, 'assignment', node, node.right.name)) {
-              return;
+            if (this._findAndShrinkFunctionParams(ast, 'class', node, node.right.name)) {
+              return false;
             }
             this._findAndShrinkVars(ast, node.right.name, 'class');
-          } else if (node.right.value) {
+            return false;
+          }
+          return true;
+        }).forEach(node => {
+          if (node.right.value) {
             node.right.value = this._shrinkSimpleClass(node.right.value);
           }
         });
@@ -117,16 +124,45 @@ export default class JsShrinker extends BaseShrinker {
         .reduce((arr, next) => arr.concat(next), [])
         .filter(node => node.arguments.length)
         .forEach(node => {
-          node.arguments.forEach(arg => {
+          node.arguments.filter(arg => {
             if (t.Identifier.check(arg)) {
-              if (this._findAndShrinkFunctionParams(ast, 'call', node, arg.name)) {
-                return;
+              if (this._findAndShrinkFunctionParams(ast, 'class', node, arg.name)) {
+                return false;
               }
               this._findAndShrinkVars(ast, arg.name, 'class');
-            } else if (arg.value) {
+              return false;
+            }
+            return true;
+          }).forEach(arg => {
+            if (arg.value) {
               arg.value = this._shrinkSimpleClass(arg.value);
             }
           });
+        });
+  }
+
+  shrinkSpecificCallExpression(ast, key, argIdx, type) {
+    let arg;
+    query.query(ast, buildSpecificCallExpr(key, argIdx))
+        .filter(node => {
+          arg = node.arguments[argIdx];
+          if (t.Identifier.check(arg)) {
+            if (this._findAndShrinkFunctionParams(ast, type, node, arg.name)) {
+              return false;
+            }
+            this._findAndShrinkVars(ast, arg.name, type);
+            return false;
+          }
+          return true;
+        }).forEach(node => {
+          arg = node.arguments[argIdx];
+          if (arg.value) {
+            if (type === 'class') {
+              arg.value = this._shrinkSimpleClass(arg.value);
+            } else {
+              arg.value = this._shrinkSelectors(arg.value);
+            }
+          }
         });
   }
 
@@ -138,11 +174,19 @@ export default class JsShrinker extends BaseShrinker {
           return query.query(node, buildArgumentExpr(0, 'class')).length &&
               node.arguments.length === 2;
         })
-        .forEach(node => {
+        .filter(node => {
           arg = node.arguments[1];
           if (t.Identifier.check(arg)) {
+            if (this._findAndShrinkFunctionParams(ast, 'class', node, arg.name)) {
+              return false;
+            }
             this._findAndShrinkVars(ast, arg.name, 'class');
-          } else if (arg.value) {
+            return false;
+          }
+          return true;
+        }).forEach(node => {
+          arg = node.arguments[1];
+          if (arg.value) {
             arg.value = this._shrinkSimpleClass(arg.value);
           }
         });
@@ -156,10 +200,17 @@ export default class JsShrinker extends BaseShrinker {
     keys.map(key => query.query(ast, buildSelectorCallExpr(key)))
         .reduce((arr, next) => arr.concat(next), [])
         .filter(node => node.arguments.length)
-        .forEach(node => {
+        .filter(node => {
           if (t.Identifier.check(node.arguments[0])) {
+            if (this._findAndShrinkFunctionParams(ast, 'selector', node, node.arguments[0].name)) {
+              return false;
+            }
             this._findAndShrinkVars(ast, node.arguments[0].name, 'selector');
-          } else if (node.arguments[0].value) {
+            return false;
+          }
+          return true;
+        }).forEach(node => {
+          if (node.arguments[0].value) {
             node.arguments[0].value = this._shrinkSelectors(node.arguments[0].value);
           }
         });
@@ -208,20 +259,13 @@ export default class JsShrinker extends BaseShrinker {
   }
 
   _findAndShrinkFunctionParams(ast, type, node, id) {
-    // type: assignment, call, callSelector
-
     let affectedNode = null;
-    if (type === 'call') {
-      affectedNode = query.query(ast, 'ExpressionStatement')
-          .find(block => block.expression === node);
-    } else if (type === 'assignment') {
-      affectedNode = query.query(ast, 'ExpressionStatement')
-          .find(block => block.expression === node);
-    }
-    let scopeFn = query.query(ast, ':function')
-        .filter(func => {
-          return ~func.body.body.indexOf(affectedNode);
-        })[0];
+    affectedNode = query.query(ast, 'ExpressionStatement')
+        .find(block => block.expression === node);
+    let scopeFn = query.query(ast, ':function').find(func => {
+      return ~func.body.body.indexOf(affectedNode);
+    });
+    // console.log('function', scopeFn)
     let argIdx = scopeFn.params.findIndex(p => p.name === id);
     if (~argIdx) {
       // NOTE: the variable is declared outside this function and passed in as
@@ -229,33 +273,22 @@ export default class JsShrinker extends BaseShrinker {
       let fnName = scopeFn.id
           ? scopeFn.id.name
           : this._findFunctionName(ast, scopeFn);
-          type === 'assignment' &&  console.log(fnName)
-      this.shrinkCallExpressions(ast, [fnName], true);
+      this.shrinkSpecificCallExpression(ast, fnName, argIdx, type);
       return true;
     }
     return false;
   }
 
   _findFunctionName(ast, fnExpr) {
-    console.log(fnExpr)
-    let node = query.query(ast, 'VariableDeclarator')
-       .find(block => {
-         try {
-           deepEqual(block.init, node);
-         } catch (e) {
-           return false;
-         }
-         return true;
-       });
-    if (!node) {
-      node = query.query(ast, 'AssignmentExpression')
-      .find(block => block.right === node);
-    }
+    let node = query.query(ast, 'VariableDeclarator[init.type="FunctionExpression"]')
+        .concat(query.query(ast, 'AssignmentExpression[right.type="FunctionExpression"]'))
+        .find(block => block.init === fnExpr || block.right === fnExpr);
+
     if (!node) {
       // NOTE: may be an IIFE ?
       console.log('Something is wrong: could not find function name');
     }
-    return node.id ? node.id.name : node.expression.left.name;
+    return node.id ? node.id.name : node.left.name;
   }
 
   _shrinkSimpleClass(cls) {
