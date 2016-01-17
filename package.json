@@ -60,6 +60,8 @@
     "watch": "*"
   },
   "dependencies": {
+    "array.prototype.find": "^1.0.0",
+    "array.prototype.findindex": "^1.0.0",
     "ast-types": "^0.8.15",
     "babel-plugin-transform-async-to-generator": "^6.4.0",
     "babel-plugin-transform-regenerator": "^6.3.26",

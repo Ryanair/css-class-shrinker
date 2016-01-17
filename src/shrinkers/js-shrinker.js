@@ -4,6 +4,10 @@ import query from 'esquery';
 import codegen from 'escodegen';
 import { namedTypes as t } from 'ast-types';
 
+// NOTE: polyfilling Array.prototype.find/findIndex for Node 0.12
+import 'array.prototype.find';
+import 'array.prototype.findindex';
+
 const CALL_EXPRESSIONS = [
   'classList.add',
   'classList.remove',
