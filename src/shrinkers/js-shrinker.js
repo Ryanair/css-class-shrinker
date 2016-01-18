@@ -109,7 +109,7 @@ export default class JsShrinker extends BaseShrinker {
             if (this._findAndShrinkFunctionParams(ast, 'class', node, node.right.name)) {
               return false;
             }
-            this._findAndShrinkVars(ast, node.right.name, 'class');
+            this._findAndShrinkVars(ast, node, node.right.name, 'class');
             return false;
           }
           return true;
@@ -130,7 +130,7 @@ export default class JsShrinker extends BaseShrinker {
               if (this._findAndShrinkFunctionParams(ast, 'class', node, arg.name)) {
                 return false;
               }
-              this._findAndShrinkVars(ast, arg.name, 'class');
+              this._findAndShrinkVars(ast, node, arg.name, 'class');
               return false;
             }
             return true;
@@ -151,7 +151,7 @@ export default class JsShrinker extends BaseShrinker {
             if (this._findAndShrinkFunctionParams(ast, type, node, arg.name)) {
               return false;
             }
-            this._findAndShrinkVars(ast, arg.name, type);
+            this._findAndShrinkVars(ast, node, arg.name, type);
             return false;
           }
           return true;
@@ -181,7 +181,7 @@ export default class JsShrinker extends BaseShrinker {
             if (this._findAndShrinkFunctionParams(ast, 'class', node, arg.name)) {
               return false;
             }
-            this._findAndShrinkVars(ast, arg.name, 'class');
+            this._findAndShrinkVars(ast, node, arg.name, 'class');
             return false;
           }
           return true;
@@ -206,7 +206,7 @@ export default class JsShrinker extends BaseShrinker {
             if (this._findAndShrinkFunctionParams(ast, 'selector', node, node.arguments[0].name)) {
               return false;
             }
-            this._findAndShrinkVars(ast, node.arguments[0].name, 'selector');
+            this._findAndShrinkVars(ast, node, node.arguments[0].name, 'selector');
             return false;
           }
           return true;
@@ -235,24 +235,33 @@ export default class JsShrinker extends BaseShrinker {
     return codegen.generate(ast);
   }
 
-  _findAndShrinkVars(ast, varName, type) {
+  _findAndShrinkVars(ast, node, varName, type) {
     // NOTE: very risky at the moment, since it searches for all occurencies of
     // `varName` in the file and replaces its string contents.
-    // TODO: improve this by taking into account function scopes, to limit the
-    // risk of changing a variable which shouldn't be touched.
     let found = false;
-    let shrink = type === 'selector'
+    let shrinkFn = type === 'selector'
         ? this._shrinkSelectors.bind(this)
         : this._shrinkSimpleClass.bind(this);
-    query.query(ast, buildVarDeclarator(varName)).forEach(node => {
-      if (t.Literal.check(node.init)) {
-        node.init.value = shrink(node.init.value);
+    let scopeBlock = this._getParentBlockStatement(ast, node);
+
+    while (scopeBlock && !found) {
+      found = this._shrinkVariables(scopeBlock, varName, shrinkFn);
+      scopeBlock = this._getParentBlockStatement(ast, scopeBlock);
+    }
+    return found;
+  }
+
+  _shrinkVariables(block, name, shrinkFn) {
+    let found = false;
+    query.query(block, buildVarDeclarator(name)).forEach(varDecl => {
+      if (t.Literal.check(varDecl.init)) {
+        varDecl.init.value = shrinkFn(varDecl.init.value);
         found = true;
       }
     });
-    query.query(ast, buildAssignmentExpr(varName)).forEach(node => {
-      if (t.Literal.check(node.right)) {
-        node.right.value = shrink(node.right.value);
+    query.query(block, buildAssignmentExpr(name)).forEach(expr => {
+      if (t.Literal.check(expr.right)) {
+        expr.right.value = shrinkFn(expr.right.value);
         found = true;
       }
     });
@@ -260,14 +269,7 @@ export default class JsShrinker extends BaseShrinker {
   }
 
   _findAndShrinkFunctionParams(ast, type, node, id) {
-    let affectedNode = null;
-    affectedNode = query.query(ast, 'ExpressionStatement')
-        .find(block => block.expression === node);
-    let scopeFn = query.query(ast, ':function').find(func => {
-      return ~func.body.body.indexOf(affectedNode);
-    });
-    // console.log('function', scopeFn)
-    let argIdx = scopeFn.params.findIndex(p => p.name === id);
+    let [scopeFn, argIdx] = this._findFunctionWithParam(ast, node, id);
     if (~argIdx) {
       // NOTE: the variable is declared outside this function and passed in as
       // a parameter
@@ -280,14 +282,71 @@ export default class JsShrinker extends BaseShrinker {
     return false;
   }
 
+  _findFunctionWithParam(ast, node, argId) {
+    let affectedNode = query.query(ast, 'ExpressionStatement')
+        .find(block => block.expression === node);
+    let scopeFn = query.query(ast, ':function').find(func => {
+      return ~func.body.body.indexOf(affectedNode);
+    });
+    let argIdx = scopeFn.params.findIndex(p => p.name === argId);
+    while (scopeFn && !~argIdx) {
+      [scopeFn, argIdx] = this._functionLookup(ast, scopeFn, argId);
+    }
+    return [scopeFn, argIdx];
+  }
+
+  _functionLookup(ast, node, id) {
+    let idx = -1;
+    let scopeFn = query.query(ast, ':function').find(fn => {
+      return fn.body.body.find(n => this._hasBlockStatement(n, node.body));
+    });
+    if (scopeFn) {
+      idx = scopeFn.params.findIndex(p => p.name === id);
+    }
+    return [scopeFn, idx];
+  }
+
+  _getParentBlockStatement(ast, node) {
+    if (t.BlockStatement.check(node)) {
+      return query.query(ast, 'BlockStatement').find(block => {
+        return block.body.find(n => this._hasBlockStatement(n, node));
+      });
+    }
+    let affectedNode = query.query(ast, 'ExpressionStatement')
+        .find(exprStat => exprStat.expression === node);
+    return query.query(ast, 'BlockStatement').find(block => {
+      return ~block.body.indexOf(affectedNode);
+    });
+  }
+
+  _hasBlockStatement(node, block) {
+    if (t.FunctionDeclaration.check(node)) {
+      return node.body === block;
+    }
+    if (t.VariableDeclaration.check(node)) {
+      return node.declarations.find(d => {
+        return t.FunctionExpression.check(d.init) && d.init.body === block;
+      });
+    }
+    if (t.ExpressionStatement.check(node)) {
+      if (t.FunctionExpression.check(node.expression.right)) {
+        return node.expression.right.body === block;
+      } else if (t.CallExpression.check(node.expression)) {
+        return node.expression.callee.body === block;
+      }
+    }
+    return false;
+  }
+
   _findFunctionName(ast, fnExpr) {
     let node = query.query(ast, 'VariableDeclarator[init.type="FunctionExpression"]')
         .concat(query.query(ast, 'AssignmentExpression[right.type="FunctionExpression"]'))
         .find(block => block.init === fnExpr || block.right === fnExpr);
 
+    // TODO: handle anonymous functions if needed
+    /* istanbul ignore if */
     if (!node) {
       // NOTE: may be an IIFE ?
-      console.log('Something is wrong: could not find function name');
     }
     return node.id ? node.id.name : node.left.name;
   }

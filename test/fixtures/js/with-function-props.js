@@ -6,7 +6,7 @@
   var change5;
   let cls = 'some-class';
   let cls2 = 'other-class';
-  // var somethingElse = 'other-class';
+  var somethingElse = 'other-class';
 
   function change(_cls) {
     let something = 'some-class';
@@ -31,9 +31,24 @@
     $(_cls4);
   }
 
+  let somethingDifferent = 'some-class';
+  function change6(someClass) {
+    let somethingDifferent = 'yet-another-class';
+    (function() {
+      body.classList.add(somethingDifferent);
+      body.setAttribute('class', someClass);
+    })();
+  }
+
+  function inception(_cls5) {
+    change(_cls5);
+  }
+
   change(cls);
   change2(cls2);
   change3('some-class');
   change4('other-class', 10, 'some-class', 'some-class');
   change5('some-class', '.yet-another-class', 'yet-another-class');
+  change6('other-class');
+  inception('some-class');
 })();
