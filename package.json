@@ -13,7 +13,7 @@
     "check": "npm run lint -s && dependency-check package.json --entry src",
     "watch": "watch 'npm run build' src test",
     "test": "ava --tap |tap-spec",
-    "prebuild": "npm run check -s && npm run clean -s",
+    "prebuild": "npm run clean -s && npm run check -s",
     "build": "babel --optional runtime src -d dist",
     "postbuild": "npm run test -s",
     "coverage": "nyc npm test",

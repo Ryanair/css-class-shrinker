@@ -1,0 +1,13 @@
+approve_by_comment: true
+approve_regex: '^(Approved|:shipit:|:+1:|LGTM)'
+reject_regex: '^(Rejected|Nope|:-1:|:no_good:)'
+reset_on_push: false
+reset_on_reopened: true
+reviewers:
+  -
+    name: admins
+    required: 1
+    members:
+      - izifortune
+      - Meesayen
+      - smcelhinney
